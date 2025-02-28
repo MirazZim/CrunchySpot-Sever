@@ -35,10 +35,17 @@ async function run() {
 
 
     //users related apis
-    app.post('/users', async (req,res) => {
+    app.post('/users', async (req, res) => {
       const user = req.body;
-      const result = await userCollection.insertOne(user);
-      res.send(result); 
+      //inser email if user doesnt exist 
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message:'User already exists', insertedId: null });
+      } else {
+        const result = await userCollection.insertOne(user);
+        res.send(result);
+      }
     })
 
 
@@ -55,24 +62,24 @@ async function run() {
     })
 
     app.post("/carts", async (req, res) => {
-        const cartItem = req.body;
-        const result = await cartCollection.insertOne(cartItem);
-        res.send(result);
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
+      res.send(result);
     })
 
     app.delete("/carts/:id", async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await cartCollection.deleteOne(query);
-        res.send(result);
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartCollection.deleteOne(query);
+      res.send(result);
     })
 
 
     //Menu Api  (CRUD)        
 
     app.get("/menu", async (req, res) => {
-        const result = await menuCollection.find().toArray();
-        res.send(result);
+      const result = await menuCollection.find().toArray();
+      res.send(result);
     })
 
 
@@ -90,8 +97,8 @@ run().catch(console.dir);
 
 
 app.get("/", (req, res) => {
-    res.send("Welcome to CrunchySpot Server!");
+  res.send("Welcome to CrunchySpot Server!");
 })
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
