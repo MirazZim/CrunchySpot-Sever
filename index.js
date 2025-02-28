@@ -30,6 +30,19 @@ async function run() {
 
     const menuCollection = client.db("CrunchySpot").collection("menu");
     const cartCollection = client.db("CrunchySpot").collection("carts");
+    const userCollection = client.db("CrunchySpot").collection("users");
+
+
+
+    //users related apis
+    app.post('/users', async (req,res) => {
+      const user = req.body;
+      const result = await userCollection.insertOne(user);
+      res.send(result); 
+    })
+
+
+
 
 
     //Carts Api
