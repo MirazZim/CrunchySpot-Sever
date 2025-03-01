@@ -43,13 +43,18 @@ async function run() {
 
     //middleware
     const verifyToken = (req, res, next) => {
-      console.log('inside verify token', req.headers);
+      console.log('inside verify token', req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'Forbidden access!' });
       }
       const token = req.headers.authorization.split(' ')[1];
-      
-      //next();
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(403).send({ message: 'Forbidden access!' });
+        }
+        req.decoded = decoded;
+        next();
+      })
     }
 
 
@@ -60,6 +65,17 @@ async function run() {
     const result = await userCollection.find().toArray();
     res.send(result);
   })  
+  
+  app.get('/users/admin/:email', verifyToken, async (req, res) => {
+    const email = req.params.email;
+    if (email !== req.decoded.email) {
+      return res.status(403).send({ admin: false });
+    }
+  
+    const user = await userCollection.findOne({ email });
+    const isAdmin = user?.role === 'admin';
+    res.send({ admin: isAdmin });
+  });
 
 
 
