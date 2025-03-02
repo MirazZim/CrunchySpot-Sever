@@ -37,13 +37,13 @@ async function run() {
     //Jwt related apis
     app.post('/jwt', async(req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3h' });
       res.send({ token });
     })
 
     //middleware
     const verifyToken = (req, res, next) => {
-      console.log('inside verify token', req.headers.authorization);
+      // console.log('inside verify token', req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: 'Forbidden access!' });
       }
@@ -102,10 +102,10 @@ async function run() {
         const result = await userCollection.insertOne(user);
         res.send(result);
       }
-    })
+    }) 
 
 
-    app.patch('/users/admin/:id', async (req, res) => {
+    app.patch('/users/admin/:id',verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = { $set: { role: 'admin' } };
@@ -113,7 +113,7 @@ async function run() {
       res.send(result);
     })
 
-    app.delete('/users/:id', async (req, res) => {
+    app.delete('/users/:id',verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -151,6 +151,12 @@ async function run() {
 
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post("/menu", async (req, res) => {
+      const newItem = req.body;
+      const result = await menuCollection.insertOne(newItem);
       res.send(result);
     })
 
