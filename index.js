@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+
 require("dotenv").config();
 const port = process.env.PORT || 3000;
 
@@ -32,10 +33,10 @@ async function run() {
     const menuCollection = client.db("CrunchySpot").collection("menu");
     const cartCollection = client.db("CrunchySpot").collection("carts");
     const userCollection = client.db("CrunchySpot").collection("users");
-   
+
 
     //Jwt related apis
-    app.post('/jwt', async(req, res) => {
+    app.post('/jwt', async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3h' });
       res.send({ token });
@@ -64,7 +65,7 @@ async function run() {
       const user = await userCollection.findOne(query);
       const isAdmin = user?.role === 'admin';
       if (!isAdmin) {
-        return res.status(403).send({ admin: false , message: 'Forbidden access!'});
+        return res.status(403).send({ admin: false, message: 'Forbidden access!' });
       }
       next();
     }
@@ -72,22 +73,22 @@ async function run() {
 
     //users related apis
 
-  app.get('/users',verifyToken, verifyAdmin, async (req, res) => {
-    
-    const result = await userCollection.find().toArray();
-    res.send(result);
-  })  
-  
-  app.get('/users/admin/:email', verifyToken, async (req, res) => {
-    const email = req.params.email;
-    if (email !== req.decoded.email) {
-      return res.status(403).send({ admin: false });
-    }
-  
-    const user = await userCollection.findOne({ email });
-    const isAdmin = user?.role === 'admin';
-    res.send({ admin: isAdmin });
-  });
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ admin: false });
+      }
+
+      const user = await userCollection.findOne({ email });
+      const isAdmin = user?.role === 'admin';
+      res.send({ admin: isAdmin });
+    });
 
 
 
@@ -97,15 +98,15 @@ async function run() {
       const query = { email: user.email };
       const existingUser = await userCollection.findOne(query);
       if (existingUser) {
-        return res.send({ message:'User already exists', insertedId: null });
+        return res.send({ message: 'User already exists', insertedId: null });
       } else {
         const result = await userCollection.insertOne(user);
         res.send(result);
       }
-    }) 
+    })
 
 
-    app.patch('/users/admin/:id',verifyToken, verifyAdmin, async (req, res) => {
+    app.patch('/users/admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updatedDoc = { $set: { role: 'admin' } };
@@ -113,7 +114,7 @@ async function run() {
       res.send(result);
     })
 
-    app.delete('/users/:id',verifyToken, verifyAdmin, async (req, res) => {
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
@@ -154,7 +155,7 @@ async function run() {
       res.send(result);
     })
 
-    app.post("/menu",verifyToken,verifyAdmin, async (req, res) => {
+    app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
       const newItem = req.body;
       const result = await menuCollection.insertOne(newItem);
       res.send(result);
@@ -163,12 +164,12 @@ async function run() {
     app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       let query;
-      
+
       // Try to use as ObjectId first
       try {
         query = { _id: new ObjectId(id) };
         const result = await menuCollection.deleteOne(query);
-        
+
         // If no document was deleted, try as string ID
         if (result.deletedCount === 0) {
           query = { _id: id };
@@ -184,6 +185,83 @@ async function run() {
         res.send(stringResult);
       }
     })
+
+
+
+
+
+    app.get("/menu/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        // First try as ObjectId
+        let query = {};
+        if (ObjectId.isValid(id)) {
+          query = { _id: new ObjectId(id) };
+        }
+
+        let result = await menuCollection.findOne(query);
+
+        // If not found, try as string
+        if (!result) {
+          query = { _id: id };
+          result = await menuCollection.findOne(query);
+        }
+
+        if (!result) {
+          return res.status(404).send({ error: "Menu item not found" });
+        }
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching menu item:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+      }
+    });
+
+
+  app.patch('/menu/:id', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+      const item = req.body;
+      const id = req.params.id;
+      
+      // First try as ObjectId
+      let filter = {};
+      if (ObjectId.isValid(id)) {
+        filter = { _id: new ObjectId(id) };
+      }
+      
+      const updatedDoc = {
+        $set: {
+          name: item.name,
+          price: item.price,
+          recipe: item.recipe,
+          description: item.description,
+          image: item.image
+        }
+      };
+      
+      let result = await menuCollection.updateOne(filter, updatedDoc);
+      
+      // If no document was updated, try as string ID
+      if (result.matchedCount === 0) {
+        filter = { _id: id };
+        result = await menuCollection.updateOne(filter, updatedDoc);
+      }
+      
+      if (result.matchedCount === 0) {
+        return res.status(404).send({ error: "Menu item not found" });
+      }
+      
+      res.send(result);
+    } catch (error) {
+      console.error("Error updating menu item:", error);
+      res.status(500).send({ error: "Internal Server Error" });
+    }
+  })
+
+
+
 
 
 
