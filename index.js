@@ -154,10 +154,35 @@ async function run() {
       res.send(result);
     })
 
-    app.post("/menu", async (req, res) => {
+    app.post("/menu",verifyToken,verifyAdmin, async (req, res) => {
       const newItem = req.body;
       const result = await menuCollection.insertOne(newItem);
       res.send(result);
+    })
+
+    app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      let query;
+      
+      // Try to use as ObjectId first
+      try {
+        query = { _id: new ObjectId(id) };
+        const result = await menuCollection.deleteOne(query);
+        
+        // If no document was deleted, try as string ID
+        if (result.deletedCount === 0) {
+          query = { _id: id };
+          const stringResult = await menuCollection.deleteOne(query);
+          res.send(stringResult);
+        } else {
+          res.send(result);
+        }
+      } catch (error) {
+        // If ObjectId conversion fails, try as string
+        query = { _id: id };
+        const stringResult = await menuCollection.deleteOne(query);
+        res.send(stringResult);
+      }
     })
 
 
