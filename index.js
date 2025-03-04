@@ -161,35 +161,46 @@ async function run() {
       res.send(result);
     })
 
+    // Delete a menu item by its ID
+    // Try to use as ObjectId first, if that fails, try as string
     app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       let query;
 
       // Try to use as ObjectId first
       try {
+        // Try to use ObjectId
         query = { _id: new ObjectId(id) };
+        // Delete the document
         const result = await menuCollection.deleteOne(query);
 
         // If no document was deleted, try as string ID
         if (result.deletedCount === 0) {
+          // Try to use string ID
           query = { _id: id };
+          // Delete the document
           const stringResult = await menuCollection.deleteOne(query);
+          // Send the result
           res.send(stringResult);
         } else {
+          // Send the result
           res.send(result);
         }
       } catch (error) {
         // If ObjectId conversion fails, try as string
+        // Try to use string ID
         query = { _id: id };
+        // Delete the document
         const stringResult = await menuCollection.deleteOne(query);
+        // Send the result
         res.send(stringResult);
       }
     })
 
 
 
-
-
+    // Get a menu item by its ID
+    // Try to use as ObjectId first, if that fails, try as string
     app.get("/menu/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -197,6 +208,7 @@ async function run() {
         // First try as ObjectId
         let query = {};
         if (ObjectId.isValid(id)) {
+          // Try to use ObjectId
           query = { _id: new ObjectId(id) };
         }
 
@@ -204,22 +216,29 @@ async function run() {
 
         // If not found, try as string
         if (!result) {
+          // Try to use string ID
           query = { _id: id };
+          // Find the document
           result = await menuCollection.findOne(query);
         }
 
         if (!result) {
+          // If not found, send 404 error
           return res.status(404).send({ error: "Menu item not found" });
         }
 
+        // Send the result
         res.send(result);
       } catch (error) {
+        // If something goes wrong, send 500 error
         console.error("Error fetching menu item:", error);
         res.status(500).send({ error: "Internal Server Error" });
       }
     });
 
 
+  // Update a menu item by its ID
+  // Try to use as ObjectId first, if that fails, try as string
   app.patch('/menu/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
       const item = req.body;
@@ -228,6 +247,7 @@ async function run() {
       // First try as ObjectId
       let filter = {};
       if (ObjectId.isValid(id)) {
+        // Try to use ObjectId
         filter = { _id: new ObjectId(id) };
       }
       
@@ -245,16 +265,21 @@ async function run() {
       
       // If no document was updated, try as string ID
       if (result.matchedCount === 0) {
+        // Try to use string ID
         filter = { _id: id };
+        // Update the document
         result = await menuCollection.updateOne(filter, updatedDoc);
       }
       
       if (result.matchedCount === 0) {
+        // If not found, send 404 error
         return res.status(404).send({ error: "Menu item not found" });
       }
       
+      // Send the result
       res.send(result);
     } catch (error) {
+      // If something goes wrong, send 500 error
       console.error("Error updating menu item:", error);
       res.status(500).send({ error: "Internal Server Error" });
     }
