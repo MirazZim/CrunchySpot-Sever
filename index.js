@@ -39,7 +39,7 @@ async function run() {
     //Jwt related apis
     app.post('/jwt', async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '3h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10000h' });
       res.send({ token });
     })
 
@@ -176,9 +176,17 @@ async function run() {
     }}
     const deleteResult = await cartCollection.deleteMany(query);
     res.send({paymentResult, deleteResult});
+  })
 
 
-
+  app.get('/payments/:email',verifyToken, async (req, res) => {
+    const email = req.params.email;
+    const query = { email: email };
+    if(email !== req.decoded.email) {
+      return res.status(403).send({ message: 'Forbidden access!' });
+    }
+    const result = await paymentCollection.find(query).toArray();
+    res.send(result);
   })
 
 
