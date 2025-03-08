@@ -329,6 +329,32 @@ async function run() {
     }
   })
 
+  //stats or analytics
+  app.get('/admin-stats', async (req, res) => {
+    const users = await userCollection.estimatedDocumentCount();
+    const menuItems = await menuCollection.estimatedDocumentCount();
+    const orders = await paymentCollection.estimatedDocumentCount();
+    
+    //This is not the best way
+    // const payments = await paymentCollection.find().toArray();  
+    // const totalRevenue = payments.reduce((total, payment) => total + payment.amount, 0);
+    
+    
+    //Total revenue this the best way
+    const totalRevenue = await paymentCollection.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$amount" }
+        }
+      }
+    ]).toArray().then(result => result[0].totalRevenue);
+
+
+    res.send({ users, menuItems, orders, totalRevenue });
+  }
+)
+
 
 
 
