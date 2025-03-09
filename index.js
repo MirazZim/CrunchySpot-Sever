@@ -39,37 +39,89 @@ async function run() {
     //Jwt related apis
     app.post('/jwt', async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '10000h' });
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '4h' });
       res.send({ token });
     })
 
     //middleware
     const verifyToken = (req, res, next) => {
-      // console.log('inside verify token', req.headers.authorization);
+      // Logs all incoming information (for debugging)
+      console.log("🔹 Incoming Request Headers:", req.headers);
+  
+      // Check if the Authorization header (ID card) exists
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: 'Forbidden access!' });
+          console.error("❌ Token missing in request headers");
+          return res.status(401).send({ message: "Forbidden access! No Token" });
+          // "Hey! You can't enter without your ID card!"
       }
-      const token = req.headers.authorization.split(' ')[1];
+  
+      // Extract the token (ID card) from "Bearer token"
+      const token = req.headers.authorization.split(" ")[1];
+  
+      if (!token) {
+          console.error("❌ Token format incorrect (Missing Bearer Token)");
+          return res.status(401).send({ message: "Forbidden access! Invalid Token Format" });
+          // "Your ID card is not in the right format!"
+      }
+  
+      // Now, verify if the token is real (not fake)
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-          return res.status(403).send({ message: 'Forbidden access!' });
+          if (err) {
+              console.error("❌ JWT Verification Error:", err.message);
+              return res.status(403).send({ message: "Forbidden access! Invalid Token" });
+              // "This ID card is fake or expired!"
+          }
+  
+          // Token is valid! Save user's information to use later
+          req.decoded = decoded;
+          console.log("✅ Token successfully verified for:", decoded.email);
+          
+          // "All good! You can go ahead."
+          next();
+      });
+  };
+  
+  
+  
+  
+  // Middleware to verify if user is admin
+  const verifyAdmin = async (req, res, next) => {
+    try {
+        // Check if the user's email was saved from the token
+        if (!req.decoded || !req.decoded.email) {
+            console.error("Decoded token does not contain an email");
+            return res.status(403).send({ message: "Forbidden access! Invalid User" });
+            // "Who are you? Your ID card doesn't have your name!"
         }
-        req.decoded = decoded;
-        next();
-      })
-    }
 
-    //use verify admin after verify token
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await userCollection.findOne(query);
-      const isAdmin = user?.role === 'admin';
-      if (!isAdmin) {
-        return res.status(403).send({ admin: false, message: 'Forbidden access!' });
-      }
-      next();
+        const email = req.decoded.email;
+        console.log("Verifying admin for:", email);
+
+        // Check in the database if this user exists
+        const user = await userCollection.findOne({ email });
+
+        if (!user) {
+            console.error("User not found in database:", email);
+            return res.status(403).send({ admin: false, message: "Forbidden access! User Not Found" });
+            // "You don't go to this school!"
+        }
+
+        // Check if user has admin role
+        if (user.role !== "admin") {
+            console.error("User is not an admin:", email);
+            return res.status(403).send({ admin: false, message: "Forbidden access! Not Admin" });
+            // "You can't enter here—admins only!"
+        }
+
+        console.log("Admin verified:", email);
+        next();  // "All good, you're an admin! You can enter."
+    } catch (error) {
+        console.error("Error in verifyAdmin:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+        // "Oops! Something went wrong inside."
     }
+};
+
 
 
     //users related apis
@@ -330,7 +382,7 @@ async function run() {
   })
 
   //stats or analytics
-  app.get('/admin-stats', async (req, res) => {
+  app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
     const users = await userCollection.estimatedDocumentCount();
     const menuItems = await menuCollection.estimatedDocumentCount();
     const orders = await paymentCollection.estimatedDocumentCount();
@@ -354,6 +406,8 @@ async function run() {
     res.send({ users, menuItems, orders, totalRevenue });
   }
 )
+
+//Order Status or analytics
 
 
 
