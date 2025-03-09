@@ -408,7 +408,7 @@ async function run() {
 
 //Order Status or analytics
 
-app.get('/order-stats', async (req, res) => {
+app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
   const result  = await paymentCollection.aggregate([
       {
        $unwind: '$menuItemIds'
@@ -429,6 +429,14 @@ app.get('/order-stats', async (req, res) => {
           _id: '$menuItems.category',
           quantity: { $sum: 1 },
           totalRevenue: { $sum: '$menuItems.price' }
+        }
+      },
+      {
+        $project: {
+          _id: 0 ,
+          category: '$_id',
+          quantity: '$quantity',
+          totalRevenue: '$totalRevenue'
         }
       }
   ]).toArray();
