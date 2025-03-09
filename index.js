@@ -382,7 +382,7 @@ async function run() {
   })
 
   //stats or analytics
-  app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+  app.get('/admin-stats',verifyToken, verifyAdmin,  async (req, res) => {
     const users = await userCollection.estimatedDocumentCount();
     const menuItems = await menuCollection.estimatedDocumentCount();
     const orders = await paymentCollection.estimatedDocumentCount();
@@ -402,12 +402,38 @@ async function run() {
       }
     ]).toArray().then(result => result[0].totalRevenue);
 
-
     res.send({ users, menuItems, orders, totalRevenue });
   }
 )
 
 //Order Status or analytics
+
+app.get('/order-stats', async (req, res) => {
+  const result  = await paymentCollection.aggregate([
+      {
+       $unwind: '$menuItemIds'
+      }, 
+      {
+        $lookup: {
+          from: 'menu',
+          localField: 'menuItemIds',
+          foreignField: '_id',
+          as: 'menuItems'
+        }
+      },
+      {
+         $unwind: '$menuItems'
+      },
+      {
+        $group: {
+          _id: '$menuItems.category',
+          quantity: { $sum: 1 },
+          totalRevenue: { $sum: '$menuItems.price' }
+        }
+      }
+  ]).toArray();
+  res.send(result);
+})
 
 
 
