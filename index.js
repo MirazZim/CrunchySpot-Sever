@@ -6,6 +6,17 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 3000;
 
+const FormData = require("form-data"); // form-data v4.0.1
+const Mailgun = require("mailgun.js"); // mailgun.js v11.1.0
+const mailgun = new Mailgun(FormData);
+
+const mg = mailgun.client({
+  username: "api",
+  key: process.env.MAIL_GUN_API_KEY || "API_KEY",
+  // When you have an EU-domain, you must specify the endpoint:
+  // url: "https://api.eu.mailgun.net/v3"
+});
+
 //Middlewares
 app.use(cors());
 app.use(express.json());
@@ -227,6 +238,27 @@ async function run() {
       $in: payment.cartIds.map(id => new ObjectId(id))
     }}
     const deleteResult = await cartCollection.deleteMany(query);
+
+    //Send user a email about payment confirmation
+    mg.messages.create(process.env.MAIL_GUN_DOMAIN, {
+      from: "Mailgun Sandbox <postmaster@sandbox6560f38b4058420e8709c3c30786d072.mailgun.org>",
+      to: ["Miraz <miraz.zim.38@gmail.com>"],
+      subject: "CrunchySpot Payment Confirmation",
+      html: `<div>
+        <h2>Thank You for Your Order</h2>
+        <h4>Your tansaction id is <strong>${payment.transactionId}</strong></h4>
+        <p>Payment Amount: ${payment.amount}</p>
+        <p>We would like to get your feed back about the food</p>
+        <p>Thank You</p>
+      </div>`
+    })
+    .then(msg => console.log(msg))
+    .catch(err => console.error(err));
+
+   
+
+
+
     res.send({paymentResult, deleteResult});
   })
 
@@ -409,10 +441,15 @@ async function run() {
 //Order Status or analytics
 
 app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
+  // Unwind the array of menu item IDs
+  // This will create a new document for each menu item
   const result  = await paymentCollection.aggregate([
       {
        $unwind: '$menuItemIds'
-      }, 
+      },
+
+      // lookup the menu items based on the IDs
+      // and store them in a new array called 'menuItems'
       {
         $lookup: {
           from: 'menu',
@@ -421,9 +458,15 @@ app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
           as: 'menuItems'
         }
       },
+
+      // Unwind the new array of menu items
+      // This will create a new document for each menu item
       {
          $unwind: '$menuItems'
       },
+
+      // Group the results by the category of the menu item
+      // and calculate the total quantity and revenue for each category
       {
         $group: {
           _id: '$menuItems.category',
@@ -431,6 +474,8 @@ app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
           totalRevenue: { $sum: '$menuItems.price' }
         }
       },
+
+      // Project the results to only include the category, quantity and revenue
       {
         $project: {
           _id: 0 ,
